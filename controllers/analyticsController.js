@@ -37,15 +37,23 @@ exports.getAnalytics = async (req, res) => {
       .slice(0, 5);
 
     const recent = leads
-      .filter((l) => new Date(l.created_at) >= fiveDaysAgo)
+      .filter((l) => {
+        const createdAt = new Date(l.created_at);
+        const isRecent = createdAt >= fiveDaysAgo && createdAt <= now;
+        console.log(`Lead ${l.id || l._id}: created_at=${l.created_at}, isRecent=${isRecent}`); // Debug log
+        return isRecent;
+      })
       .slice(0, 5);
 
     const recentlyClosedLeads = leads
-      .filter((l) => 
-        l.status?.toLowerCase() === "closed" && 
-        l.closed_at && 
-        new Date(l.closed_at) >= fiveDaysAgo
-      )
+      .filter((l) => {
+        const isClosed = l.status?.toLowerCase() === "closed";
+        // Use closed_at if available, otherwise fall back to updated_at
+        const closeDate = l.closed_at ? new Date(l.closed_at) : (l.updated_at ? new Date(l.updated_at) : null);
+        const isRecent = closeDate && closeDate >= fiveDaysAgo && closeDate <= now;
+        console.log(`Lead ${l.id || l._id}: status=${l.status}, closed_at=${l.closed_at}, updated_at=${l.updated_at}, isRecent=${isRecent}`); // Debug log
+        return isClosed && isRecent;
+      })
       .slice(0, 5);
 
     res.json({
