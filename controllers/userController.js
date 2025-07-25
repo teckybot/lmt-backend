@@ -4,14 +4,24 @@ const pool = require('../config/db');
 exports.getProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const userRes = await pool.query('SELECT id, name, email, phone, avatar, created_at, last_login FROM users WHERE id = $1', [userId]);
-    if (userRes.rows.length === 0) return res.status(404).json({ message: 'User not found' });
+    const userRes = await pool.query(
+      'SELECT id, name, email, phone, avatar, created_at, last_login FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (userRes.rows.length === 0)
+      return res.status(404).json({ message: 'User not found' });
 
     const user = userRes.rows[0];
 
-    // Optional: You can calculate stats here if stored in DB
-    const addedRes = await pool.query('SELECT COUNT(*) FROM leads WHERE created_by = $1', [userId]);
-    const convertedRes = await pool.query("SELECT COUNT(*) FROM leads WHERE created_by = $1 AND status = 'closed'", [userId]);
+    const addedRes = await pool.query(
+      'SELECT COUNT(*) FROM leads WHERE created_by = $1',
+      [userId]
+    );
+    const convertedRes = await pool.query(
+      "SELECT COUNT(*) FROM leads WHERE created_by = $1 AND status = 'closed'",
+      [userId]
+    );
 
     user.leadsAdded = parseInt(addedRes.rows[0].count);
     user.leadsConverted = parseInt(convertedRes.rows[0].count);
@@ -25,24 +35,19 @@ exports.getProfile = async (req, res) => {
 
 // UPDATE profile
 exports.updateProfile = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { name, email, phone, avatar } = req.body;
+  const userId = req.user.id;
+  const { name, email, phone, avatar } = req.body;
 
+  try {
     await pool.query(
-      'UPDATE users SET name = $1, email = $2, phone = $3, avatar = $4 WHERE id = $5',
+      "UPDATE users SET name = $1, email = $2, phone = $3, avatar = $4 WHERE id = $5",
       [name, email, phone, avatar, userId]
     );
 
-    await pool.query(
-      'INSERT INTO user_activity (user_id, action, details) VALUES ($1, $2, $3)',
-      [userId, 'Updated Profile', `User updated profile info`]
-    );
-
-    res.json({ message: 'Profile updated successfully' });
+    res.json({ message: "Profile updated successfully" });
   } catch (err) {
-    console.error('Update profile error:', err);
-    res.status(500).json({ message: 'Error updating profile' });
+    console.error("Update Error:", err.message);
+    res.status(500).json({ message: "Error updating profile" });
   }
 };
 
