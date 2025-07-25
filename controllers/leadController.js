@@ -57,6 +57,8 @@ const updateLeadStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
+  if (!status) return res.status(400).json({ error: "Status is required" });
+
   try {
     const result = await pool.query(
       "UPDATE leads SET status = $1 WHERE id = $2 RETURNING *",
@@ -69,9 +71,11 @@ const updateLeadStatus = async (req, res) => {
 
     res.json({ message: "Lead status updated", lead: result.rows[0] });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Update Status Error:", err);
+    res.status(500).json({ error: "Error updating status" });
   }
 };
+
 
 // Update lead (Edit)
 const updateLead = async (req, res) => {

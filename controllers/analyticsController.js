@@ -6,6 +6,7 @@ exports.getAnalytics = async (req, res) => {
     const leads = leadsResult.rows;
 
     const now = new Date();
+    const fiveDaysAgo = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000);
 
     // Basic stats
     const total = leads.length;
@@ -20,18 +21,32 @@ exports.getAnalytics = async (req, res) => {
 
     // Time-based filters
     const upcoming = leads
-      .filter((l) => l.due_date && new Date(l.due_date) > now)
+      .filter((l) => 
+        l.due_date && 
+        new Date(l.due_date) > now && 
+        (l.status?.toLowerCase() === "new" || l.status?.toLowerCase() === "in progress")
+      )
       .slice(0, 5);
 
     const overdue = leads
-      .filter((l) => l.due_date && new Date(l.due_date) < now)
+      .filter((l) => 
+        l.due_date && 
+        new Date(l.due_date) < now && 
+        (l.status?.toLowerCase() === "new" || l.status?.toLowerCase() === "in progress")
+      )
       .slice(0, 5);
 
-    const recent = leads.slice(0, 5); // recently created
+    const recent = leads
+      .filter((l) => new Date(l.created_at) >= fiveDaysAgo)
+      .slice(0, 5);
 
     const recentlyClosedLeads = leads
-      .filter((l) => l.status?.toLowerCase() === "closed")
-      .slice(0, 5); // recent closed
+      .filter((l) => 
+        l.status?.toLowerCase() === "closed" && 
+        l.closed_at && 
+        new Date(l.closed_at) >= fiveDaysAgo
+      )
+      .slice(0, 5);
 
     res.json({
       stats: {
@@ -48,11 +63,10 @@ exports.getAnalytics = async (req, res) => {
       upcomingLeads: upcoming,
       overdueLeads: overdue,
       recentLeads: recent,
-      recentlyClosedLeads, // 🔥 added
+      recentlyClosedLeads,
     });
   } catch (error) {
     console.error("Analytics error:", error.message);
     res.status(500).json({ error: "Analytics fetch failed" });
   }
 };
-    
