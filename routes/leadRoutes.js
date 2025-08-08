@@ -1,29 +1,15 @@
 const express = require("express");
-const {
-  createLead,
-  getLeads,
-  updateLeadStatus,
-  updateLead,
-  deleteLead
-} = require("../controllers/leadController");
-
-const { getAnalytics } = require("../controllers/analyticsController");
-const verifyToken = require("../middleware/authMiddleware");
-
 const router = express.Router();
+const { createLead, getLeads, updateLeadStatus, updateLead, deleteLead } = require("../controllers/leadController");
+const authenticateToken = require("../middleware/authMiddleware");
 
-// Lead CRUD routes
-router.post("/", verifyToken, createLead);
-router.get("/", verifyToken, getLeads);
-
-// 🔁 Place this BEFORE "/:id"
-router.put("/:id/status", verifyToken, updateLeadStatus);
-
-// Analytics route
-router.get("/analytics", verifyToken, getAnalytics);
-
-// Lead update & delete
-router.put("/:id", verifyToken, updateLead);
-router.delete("/:id", verifyToken, deleteLead);
+router.post("/", authenticateToken, createLead);
+router.get("/", authenticateToken, getLeads);
+// router.post("/assign", authenticateToken, assignLead);
+router.put("/status/:id", authenticateToken, updateLeadStatus);
+router.put("/:id", authenticateToken, updateLead);
+router.delete("/:id", authenticateToken, deleteLead);
+// router.get("/assigned", authenticateToken, getAssignedLeads); // New route
 
 module.exports = router;
+

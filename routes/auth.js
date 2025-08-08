@@ -1,13 +1,10 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const pool = require('../db'); // your PostgreSQL connection
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
+const pool = require("../db"); // PostgreSQL connection
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
 
-const JWT_SECRET = 'your_jwt_secret_key'; // move to .env in real app
-
-// POST /api/login
-router.post('/login', async (req, res) => {
+router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
   try {
@@ -24,14 +21,31 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: "Invalid password" });
     }
 
+    const token = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
 
-    const token = jwt.sign({ email: user.email }, process.env.JWT_SECRET, {
-  expiresIn: '1h'
-});
+    await pool.query("UPDATE users SET last_login = NOW() WHERE id = $1", [user.id]);
 
-    res.json({ token, user: { id: user.id, email: user.email } });
+    // Return both token and user object
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
   } catch (err) {
-    console.error("Login Error:", err);
+    console.error("Login Error:", err.message);
     res.status(500).json({ error: "Server error" });
   }
 });

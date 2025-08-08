@@ -8,10 +8,14 @@ const leadRoutes = require("./routes/leadRoutes");
 const userRoutes = require("./routes/user");
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:5173", // Allow your frontend origin
+    credentials: true,
+  })
+);
 app.use(express.json());
 
-// ✅ Use only one base path for user routes
 app.use("/api/user", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/leads", leadRoutes);
