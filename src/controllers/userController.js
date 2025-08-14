@@ -1,62 +1,59 @@
-const pool = require("../config/db");
+import prisma from '../config/db.js';
 
-// Define getUsers function
-const getUsers = async (req, res) => {
+export const getUsers = async (_req, res) => {
   try {
-    const result = await pool.query("SELECT id, name, role FROM users");
-    res.json(result.rows);
+    const users = await prisma.user.findMany({
+      select: { id: true, name: true, role: true },
+    });
+    res.json(users);
   } catch (err) {
-    console.error("Get users error:", err.message);
+    console.error("Get users error:", err);
     res.status(500).json({ message: "Error fetching users" });
   }
 };
 
-// Define other functions
-const getProfile = async (req, res) => {
+export const getProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const result = await pool.query("SELECT id, name, email, role FROM users WHERE id = $1", [userId]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "User not found" });
-    }
-    res.json(result.rows[0]);
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true, role: true },
+    });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
   } catch (err) {
-    console.error("Get profile error:", err.message);
+    console.error("Get profile error:", err);
     res.status(500).json({ message: "Error fetching profile" });
   }
 };
 
-const updateProfile = async (req, res) => {
+export const updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
     const { name, email } = req.body;
-    const result = await pool.query(
-      "UPDATE users SET name = $1, email = $2, updated_at = NOW() WHERE id = $3 RETURNING *",
-      [name, email, userId]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "User not found" });
-    }
-    res.json({ message: "Profile updated", user: result.rows[0] });
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { name, email },
+    });
+    res.json({ message: "Profile updated", user });
   } catch (err) {
-    console.error("Update profile error:", err.message);
+    if (err.code === 'P2025') return res.status(404).json({ message: "User not found" });
+    if (err.code === 'P2002') return res.status(400).json({ message: "Email already in use" });
+    console.error("Update profile error:", err);
     res.status(500).json({ message: "Error updating profile" });
   }
 };
 
-const getActivity = async (req, res) => {
+export const getActivity = async (req, res) => {
   try {
     const userId = req.user.id;
-    const result = await pool.query(
-      "SELECT * FROM user_activity WHERE user_id = $1 ORDER BY created_at DESC",
-      [userId]
-    );
-    res.json(result.rows);
+    const activity = await prisma.userActivity.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(activity);
   } catch (err) {
-    console.error("Get activity error:", err.message);
+    console.error("Get activity error:", err);
     res.status(500).json({ message: "Error fetching activity" });
   }
 };
-
-// Export all functions
-module.exports = { getUsers, getProfile, updateProfile, getActivity };
