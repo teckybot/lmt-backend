@@ -14,7 +14,7 @@ const app = express();
 // Enable CORS
 app.use(
   cors({
-    origin: ["https://lmtproject.vercel.app", "http://localhost:5173"],
+    origin: ["https://lmt-frontend.vercel.app", "http://localhost:5173"],
     credentials: true,
   })
 );
