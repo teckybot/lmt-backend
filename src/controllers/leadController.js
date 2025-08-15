@@ -2,9 +2,10 @@ import prisma from '../config/db.js';
 
 export const createLead = async (req, res) => {
   const {
-    title, customer_name, phone, email, source,
-    due_date, priority, notes
+    title, customerName, phone, email, source,
+    dueDate, priority, notes
   } = req.body;
+
 
   const userId = req.user.id;
 
@@ -12,11 +13,11 @@ export const createLead = async (req, res) => {
     await prisma.lead.create({
       data: {
         title,
-        customerName: customer_name,
+        customerName: customerName,
         phone,
         email,
         source,
-        dueDate: due_date ? new Date(due_date) : null,
+        dueDate: dueDate ? new Date(dueDate) : null,
         priority,
         notes,
         status: 'New',
@@ -62,8 +63,8 @@ export const updateLeadStatus = async (req, res) => {
 export const updateLead = async (req, res) => {
   const leadId = Number(req.params.id);
   const {
-    title, customer_name, email, phone, source,
-    due_date, priority, status, notes
+    title, customerName, email, phone, source,
+    dueDate, priority, status, notes
   } = req.body;
 
   try {
@@ -71,11 +72,11 @@ export const updateLead = async (req, res) => {
       where: { id: leadId },
       data: {
         title,
-        customerName: customer_name,
+        customerName: customerName,
         email,
         phone,
         source,
-        dueDate: due_date ? new Date(due_date) : null,
+        dueDate: dueDate ? new Date(dueDate) : null,
         priority,
         status,
         notes,

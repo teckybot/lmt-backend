@@ -1,6 +1,7 @@
 import prisma from "../config/db.js";
 
 export const getAnalytics = async (_req, res) => {
+
   try {
     const now = new Date();
     const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
@@ -24,9 +25,10 @@ export const getAnalytics = async (_req, res) => {
       prisma.lead.count({ where: { status: "In Progress" } }),
       prisma.lead.count({ where: { status: "Closed" } }),
 
-      prisma.lead.count({ where: { priority: "High" } }),
-      prisma.lead.count({ where: { priority: "Medium" } }),
-      prisma.lead.count({ where: { priority: "Low" } }),
+      prisma.lead.count({ where: { priority: { equals: "high", mode: "insensitive" } } }),
+      prisma.lead.count({ where: { priority: { equals: "medium", mode: "insensitive" } } }),
+      prisma.lead.count({ where: { priority: { equals: "low", mode: "insensitive" } } }),
+
 
       prisma.lead.findMany({
         where: { status: { in: openStatuses }, dueDate: { gt: now } },
