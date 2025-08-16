@@ -59,6 +59,7 @@ model UserActivity {
   activity   String
   createdAt  DateTime? @default(now()) @map("created_at")
 
+  //Relations
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_activity")
