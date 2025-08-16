@@ -17,20 +17,32 @@ export const login = async (req, res) => {
       { expiresIn: "1h" }
     );
 
+    // update login timestamps
     await prisma.user.update({
       where: { id: user.id },
-      data: { lastLogin: new Date() },
+      data: {
+        previousLogin: user.lastLogin, // shift old one here
+        lastLogin: new Date(),         // set new one
+      },
     });
 
     res.json({
       token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        lastLogin: user.lastLogin,        // most recent (before updating)
+        previousLogin: user.previousLogin // available after first migration
+      },
     });
   } catch (err) {
     console.error("Login Error:", err);
     res.status(500).json({ error: "Server error" });
   }
 };
+
 
 export const register = async (req, res) => {
   const { name, email, password, role } = req.body;

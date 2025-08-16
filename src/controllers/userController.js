@@ -15,17 +15,31 @@ export const getUsers = async (_req, res) => {
 export const getProfile = async (req, res) => {
   try {
     const userId = req.user.id;
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, email: true, role: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        phone: true,
+        avatar: true,
+        createdAt: true,
+        lastLogin: true,
+        previousLogin: true,
+      },
     });
+
     if (!user) return res.status(404).json({ message: "User not found" });
+
     res.json(user);
   } catch (err) {
     console.error("Get profile error:", err);
     res.status(500).json({ message: "Error fetching profile" });
   }
 };
+
 
 export const updateProfile = async (req, res) => {
   try {
@@ -47,13 +61,33 @@ export const updateProfile = async (req, res) => {
 export const getActivity = async (req, res) => {
   try {
     const userId = req.user.id;
+
+    // leads summary
+    const leadsAdded = await prisma.lead.count({
+      where: { createdBy: userId },
+    });
+
+    const leadsClosed = await prisma.lead.count({
+      where: { closedBy: userId, status: "Closed" },
+    });
+
+    // detailed activity list
     const activity = await prisma.userActivity.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
-    res.json(activity);
+
+    res.json({
+      summary: {
+        leadsAdded,
+        leadsClosed,
+      },
+      activity,
+    });
   } catch (err) {
     console.error("Get activity error:", err);
     res.status(500).json({ message: "Error fetching activity" });
   }
 };
+
+

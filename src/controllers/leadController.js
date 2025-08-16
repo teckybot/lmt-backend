@@ -24,6 +24,7 @@ export const createLead = async (req, res) => {
         createdBy: userId,
       },
     });
+    
     res.status(201).json({ message: "Lead created successfully" });
   } catch (err) {
     console.error("Create Lead Error:", err);
@@ -48,9 +49,20 @@ export const updateLeadStatus = async (req, res) => {
   if (!status) return res.status(400).json({ error: "Status is required" });
 
   try {
+    const data = { status };
+
+    if (status === "Closed") {
+      data.closedBy = req.user.id;
+      data.closedAt = new Date();
+    } else {
+      // if reopening, clear out closed fields
+      data.closedBy = null;
+      data.closedAt = null;
+    }
+
     const lead = await prisma.lead.update({
       where: { id: Number(id) },
-      data: { status },
+      data,
     });
     res.json({ message: "Lead status updated", lead });
   } catch (err) {
@@ -68,20 +80,31 @@ export const updateLead = async (req, res) => {
   } = req.body;
 
   try {
+    const data = {
+      title,
+      customerName: customerName,
+      email,
+      phone,
+      source,
+      dueDate: dueDate ? new Date(dueDate) : null,
+      priority,
+      status,
+      notes,
+      updatedAt: new Date(),
+    };
+
+    if (status === "Closed") {
+      data.closedBy = req.user.id;
+      data.closedAt = new Date();
+    } else if (status) {
+      // if status provided but not Closed
+      data.closedBy = null;
+      data.closedAt = null;
+    }
+
     const lead = await prisma.lead.update({
       where: { id: leadId },
-      data: {
-        title,
-        customerName: customerName,
-        email,
-        phone,
-        source,
-        dueDate: dueDate ? new Date(dueDate) : null,
-        priority,
-        status,
-        notes,
-        updatedAt: new Date(),
-      },
+      data,
     });
     res.status(200).json({ message: "Lead updated", lead });
   } catch (err) {

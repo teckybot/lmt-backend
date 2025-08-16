@@ -16,10 +16,13 @@ model User {
   avatar      String?
   role        String          @default("employee") @db.VarChar(50)
   createdAt   DateTime?       @default(now()) @map("created_at")
-  lastLogin   DateTime?       @map("last_login")
+  lastLogin   DateTime?       @map("last_login") // most recent login
+  previousLogin  DateTime?    @map("previous_login") // login before last one
 
-  leads       Lead[]          @relation("UserLeads")
-  activities  UserActivity[]
+  // Relations
+  leads         Lead[]          @relation("UserLeads")       // leads created by this user
+  closedLeads   Lead[]          @relation("UserClosedLeads") // leads closed by this user
+  activities    UserActivity[]
 
   @@map("users")
 }
@@ -36,11 +39,16 @@ model Lead {
   notes        String?
   status       String?    @default("New") @db.VarChar(50)
   createdBy    Int?       @map("created_by")
+  closedBy     Int?       @map("closed_by")
+  
   createdAt    DateTime?  @default(now()) @map("created_at")
   updatedAt    DateTime?  @default(now()) @map("updated_at")
   closedAt     DateTime?  @map("closed_at")
 
+  // Relations
   creator      User?      @relation("UserLeads", fields: [createdBy], references: [id], onDelete: SetNull)
+  closedByUser User?      @relation("UserClosedLeads", fields: [closedBy], references: [id], onDelete: SetNull)
+
 
   @@map("leads")
 }
