@@ -1,4 +1,5 @@
 import prisma from '../config/db.js';
+import { logActivity } from '../utils/activityLogger.js';
 
 export const getUsers = async (_req, res) => {
   try {
@@ -58,36 +59,59 @@ export const updateProfile = async (req, res) => {
   }
 };
 
+// GET USER ACTIVITY
 export const getActivity = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // leads summary
-    const leadsAdded = await prisma.lead.count({
-      where: { createdBy: userId },
-    });
+    // Leads summary
+    const leadsAdded = await prisma.lead.count({ where: { createdBy: userId } });
+    const leadsClosed = await prisma.lead.count({ where: { closedBy: userId, status: 'Closed' } });
 
-    const leadsClosed = await prisma.lead.count({
-      where: { closedBy: userId, status: "Closed" },
-    });
-
-    // detailed activity list
+    // Detailed activity list
     const activity = await prisma.userActivity.findMany({
       where: { userId },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { name: true } },
+        lead: { select: { title: true } }
+      }
     });
 
+    const formattedActivity = activity.map(act => ({
+      id: act.id,
+      username: act.user?.name || 'Unknown',
+      action: act.action,
+      details: act.details,
+      leadTitle: act.lead?.title || null,
+      createdAt: act.createdAt
+    }));
+
     res.json({
-      summary: {
-        leadsAdded,
-        leadsClosed,
-      },
-      activity,
+      summary: { leadsAdded, leadsClosed },
+      activity: formattedActivity,
     });
   } catch (err) {
-    console.error("Get activity error:", err);
-    res.status(500).json({ message: "Error fetching activity" });
+    console.error('Get activity error:', err);
+    res.status(500).json({ message: 'Error fetching activity' });
   }
 };
 
+// CLEAR USER ACTIVITY HISTORY
+export const clearActivityHistory = async (req, res) => {
+  try {
+    const userId = req.user.id;
 
+    // Prevent any logging while clearing
+    req.skipLogging = true;
+
+    const deleted = await prisma.userActivity.deleteMany({
+      where: { userId }
+    });
+
+    res.status(200).json({ message: `Deleted ${deleted.count} activity entries.` });
+  } catch (err) {
+    console.error('Clear Activity History Error:', err);
+    res.status(500).json({ message: 'Failed to clear history.' });
+  }
+};

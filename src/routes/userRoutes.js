@@ -3,7 +3,8 @@ import {
   getUsers,
   getProfile,
   updateProfile,
-  getActivity
+  getActivity,
+  clearActivityHistory
 } from "../controllers/userController.js";
 import { authenticateToken } from "../middleware/authMiddleware.js";
 import { authorizeRole } from "../middleware/roleMiddleware.js";
@@ -19,5 +20,6 @@ router.put("/profile", authenticateToken, updateProfile);
 
 // Any logged-in user
 router.get("/activity", authenticateToken, getActivity);
+// router.get("/activity/clear", authenticateToken, clearActivityHistory);
 
 export default router;
