@@ -2,12 +2,18 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import morgan from 'morgan'; 
+import path from "path";
+import { fileURLToPath } from 'url';
+
 dotenv.config();
 
 import authRoutes from "./routes/authRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import leadRoutes from "./routes/leadRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -24,11 +30,15 @@ app.use(express.json());
 // Log incoming requests
 app.use(morgan('dev')); 
 
+//uploads
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/leads", leadRoutes);
 app.use("/api/users", userRoutes);
+
 
 app.use('/', (req, res) => {
   res.send('LMT Backend is running');

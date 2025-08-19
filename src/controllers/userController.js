@@ -1,5 +1,11 @@
 import prisma from '../config/db.js';
-import { logActivity } from '../utils/activityLogger.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Helper to get __dirname in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const getUsers = async (_req, res) => {
   try {
@@ -34,7 +40,14 @@ export const getProfile = async (req, res) => {
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    res.json(user);
+    // New: Convert the relative avatar path to a full URL
+    const userWithFullAvatar = {
+      ...user,
+      avatar: user.avatar ? `${process.env.BACKEND_URL}${user.avatar}` : null,
+    };
+
+    // New: Send the user object with the full URL
+    res.json(userWithFullAvatar);
   } catch (err) {
     console.error("Get profile error:", err);
     res.status(500).json({ message: "Error fetching profile" });
@@ -46,18 +59,60 @@ export const updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
     const { name, email } = req.body;
+
+    // Fetch the current user data to check for an existing avatar
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { avatar: true },
+    });
+
+    const data = { name, email };
+
+    if (req.file) {
+      // Logic to delete the old avatar file
+      if (existingUser && existingUser.avatar) {
+        // Construct the full path to the old avatar file
+        const oldAvatarPath = path.join(__dirname, '..', existingUser.avatar);
+        
+        // Use fs.unlink to delete the file. The `try...catch` block handles errors gracefully
+        // in case the file doesn't exist for some reason.
+        try {
+          fs.unlinkSync(oldAvatarPath);
+          console.log(`Old avatar deleted: ${oldAvatarPath}`);
+        } catch (err) {
+          console.error('Failed to delete old avatar:', err);
+        }
+      }
+
+      // Set the new avatar path
+      data.avatar = `/uploads/avatars/${req.file.filename}`;
+    }
+
+    // Update the user in the database with new data (including the new avatar path)
     const user = await prisma.user.update({
       where: { id: userId },
-      data: { name, email },
+      data,
     });
-    res.json({ message: "Profile updated", user });
+
+    // Convert avatar to full URL before sending
+    const userWithFullAvatar = {
+      ...user,
+      avatar: user.avatar ? `${process.env.BACKEND_URL}${user.avatar}` : null,
+    };
+
+    res.json({ message: "Profile updated", user: userWithFullAvatar });
   } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ message: "User not found" });
-    if (err.code === 'P2002') return res.status(400).json({ message: "Email already in use" });
+    if (err.code === "P2025")
+      return res.status(404).json({ message: "User not found" });
+    if (err.code === "P2002")
+      return res.status(400).json({ message: "Email already in use" });
     console.error("Update profile error:", err);
     res.status(500).json({ message: "Error updating profile" });
   }
 };
+
+
+
 
 // GET USER ACTIVITY
 export const getActivity = async (req, res) => {
