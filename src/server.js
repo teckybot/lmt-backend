@@ -31,7 +31,7 @@ app.use(express.json());
 app.use(morgan('dev')); 
 
 //uploads
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use('/avatars', express.static(path.join(__dirname, 'uploads/avatars')));
 
 // Routes
 app.use("/api/auth", authRoutes);

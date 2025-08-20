@@ -71,21 +71,21 @@ export const updateProfile = async (req, res) => {
     if (req.file) {
       // Logic to delete the old avatar file
       if (existingUser && existingUser.avatar) {
-        // Construct the full path to the old avatar file
-        const oldAvatarPath = path.join(__dirname, '..', existingUser.avatar);
-        
-        // Use fs.unlink to delete the file. The `try...catch` block handles errors gracefully
-        // in case the file doesn't exist for some reason.
+        const relativePath = existingUser.avatar.replace(/^\/+/, "");
+        const oldAvatarPath = path.join(__dirname, "../uploads", relativePath);
+
         try {
           fs.unlinkSync(oldAvatarPath);
           console.log(`Old avatar deleted: ${oldAvatarPath}`);
         } catch (err) {
-          console.error('Failed to delete old avatar:', err);
+          console.error("Failed to delete old avatar:", err);
         }
       }
 
+
+
       // Set the new avatar path
-      data.avatar = `/uploads/avatars/${req.file.filename}`;
+      data.avatar = `/avatars/${req.file.filename}`;
     }
 
     // Update the user in the database with new data (including the new avatar path)
