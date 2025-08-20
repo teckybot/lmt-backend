@@ -56,6 +56,9 @@ export const getLeads = async (_req, res) => {
                 name: true,
               },
             },
+            assignedByUser: {
+              select: { id: true, name: true, role: true },
+            },
           },
         },
       },
@@ -63,10 +66,15 @@ export const getLeads = async (_req, res) => {
 
     // The frontend LeadTable.jsx expects an `assignees` property directly on each lead object.
     // This maps the database result into that format.
-    const formattedLeads = leads.map(lead => ({
-      ...lead,
-      assignees: lead.assignments.map(assignment => assignment.user),
-    }));
+    const formattedLeads = leads.map(lead => {
+      const assignees = lead.assignments.map(a => a.user);
+      const assignedByNames = Array.from(new Set(lead.assignments.map(a => a.assignedByUser?.name).filter(Boolean)));
+      return {
+        ...lead,
+        assignees,
+        assignedByNames,
+      };
+    });
 
     res.json(formattedLeads);
   } catch (err) {
@@ -97,15 +105,23 @@ export const getMyLeads = async (req, res) => {
             user: {
               select: { id: true, name: true },
             },
+            assignedByUser: {
+              select: { id: true, name: true, role: true },
+            },
           },
         },
       },
     });
 
-    const formattedLeads = leads.map((lead) => ({
-      ...lead,
-      assignees: lead.assignments.map((assignment) => assignment.user),
-    }));
+    const formattedLeads = leads.map((lead) => {
+      const assignees = lead.assignments.map((assignment) => assignment.user);
+      const assignedByNames = Array.from(new Set(lead.assignments.map(a => a.assignedByUser?.name).filter(Boolean)));
+      return {
+        ...lead,
+        assignees,
+        assignedByNames,
+      };
+    });
 
     res.json(formattedLeads);
   } catch (err) {

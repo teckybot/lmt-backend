@@ -25,6 +25,11 @@ model User {
   activities    UserActivity[]
   assignedLeads      LeadAssignment[]   @relation("AssignedLeads")
   assignedByLeads    LeadAssignment[]   @relation("LeadAssignedBy")
+  notifications      Notification[]
+  requestedNotifications Notification[] @relation("RequestedBy")
+  actedNotifications     Notification[] @relation("ActedBy")
+  reassignPermissionsGranted ReassignPermission[] @relation("GrantedPermissions")
+  reassignPermissions        ReassignPermission[] @relation("AdminPermissions")
 
   @@map("users")
 }
@@ -97,5 +102,51 @@ model LeadAssignment {
 
   @@unique([leadId, userId])
   @@map("lead_assignments")
+}
+
+model Notification {
+  id            Int               @id @default(autoincrement())
+  recipientId   Int
+  message       String
+  leadId        Int?
+  type          NotificationType  @default(INFO)
+  status        RequestStatus?
+  requestedById Int?
+  actedById     Int?
+  createdAt     DateTime          @default(now()) @map("created_at")
+  read          Boolean           @default(false)
+
+  recipient     User              @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  requestedBy   User?             @relation("RequestedBy", fields: [requestedById], references: [id])
+  actedBy       User?             @relation("ActedBy", fields: [actedById], references: [id])
+
+  @@map("notifications")
+}
+
+enum NotificationType {
+  INFO
+  REASSIGN_REQUEST
+  REASSIGN_DECISION
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model ReassignPermission {
+  id         Int      @id @default(autoincrement())
+  leadId     Int
+  adminId    Int
+  grantedBy  Int
+  used       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  admin      User     @relation("AdminPermissions", fields: [adminId], references: [id], onDelete: Cascade)
+  granter    User     @relation("GrantedPermissions", fields: [grantedBy], references: [id], onDelete: Cascade)
+
+  @@index([leadId, adminId, used])
+  @@map("reassign_permissions")
 }
 
