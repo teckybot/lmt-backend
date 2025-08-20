@@ -2,6 +2,7 @@ import express from "express";
 import {
   createLead,
   getLeads,
+  getMyLeads,
   updateLeadStatus,
   updateLead,
   deleteLead
@@ -14,6 +15,7 @@ const router = express.Router();
 // Any logged-in user
 router.post("/", authenticateToken, createLead);
 router.get("/", authenticateToken, getLeads);
+router.get("/my-leads", authenticateToken, getMyLeads);
 router.patch("/:id/status", authenticateToken, updateLeadStatus);
 router.put("/:id", authenticateToken, updateLead);
 

@@ -23,6 +23,8 @@ model User {
   leads         Lead[]          @relation("UserLeads")       // leads created by this user
   closedLeads   Lead[]          @relation("UserClosedLeads") // leads closed by this user
   activities    UserActivity[]
+  assignedLeads      LeadAssignment[]   @relation("AssignedLeads")
+  assignedByLeads    LeadAssignment[]   @relation("LeadAssignedBy")
 
   @@map("users")
 }
@@ -49,6 +51,7 @@ model Lead {
   creator      User?      @relation("UserLeads", fields: [createdBy], references: [id], onDelete: SetNull)
   closedByUser User?      @relation("UserClosedLeads", fields: [closedBy], references: [id], onDelete: SetNull)
   activities   UserActivity[]
+  assignments   LeadAssignment[]
 
   @@map("leads")
 }
@@ -77,5 +80,22 @@ enum ActivityType {
   UPDATED
   CLOSED
   DELETED
+}
+
+model LeadAssignment {
+  id             Int       @id @default(autoincrement())
+  leadId         Int
+  userId         Int
+  assignedBy     Int       // who assigned this lead
+  assignedAt     DateTime  @default(now())
+  active         Boolean   @default(true)
+
+  // Relations
+  lead           Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user           User      @relation("AssignedLeads", fields: [userId], references: [id], onDelete: Cascade)
+  assignedByUser User      @relation("LeadAssignedBy", fields: [assignedBy], references: [id], onDelete: Cascade)
+
+  @@unique([leadId, userId])
+  @@map("lead_assignments")
 }
 

@@ -43,10 +43,74 @@ export const getLeads = async (_req, res) => {
   try {
     const leads = await prisma.lead.findMany({
       orderBy: { createdAt: 'desc' },
+      // Include the assigned users for each lead.
+      include: {
+        assignments: {
+          where: {
+            active: true, // Only fetch current assignments
+          },
+          select: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
     });
-    res.json(leads);
+
+    // The frontend LeadTable.jsx expects an `assignees` property directly on each lead object.
+    // This maps the database result into that format.
+    const formattedLeads = leads.map(lead => ({
+      ...lead,
+      assignees: lead.assignments.map(assignment => assignment.user),
+    }));
+
+    res.json(formattedLeads);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Get Leads Error:', err);
+    res.status(500).json({ error: 'Failed to fetch leads' });
+  }
+};
+
+// GET LEADS ASSIGNED TO CURRENT USER
+export const getMyLeads = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const leads = await prisma.lead.findMany({
+      where: {
+        assignments: {
+          some: {
+            active: true,
+            userId: userId,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        assignments: {
+          where: { active: true },
+          select: {
+            user: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+      },
+    });
+
+    const formattedLeads = leads.map((lead) => ({
+      ...lead,
+      assignees: lead.assignments.map((assignment) => assignment.user),
+    }));
+
+    res.json(formattedLeads);
+  } catch (err) {
+    console.error('Get My Leads Error:', err);
+    res.status(500).json({ error: 'Failed to fetch assigned leads' });
   }
 };
 
@@ -141,7 +205,7 @@ export const updateLead = async (req, res) => {
       if (['updatedAt', 'closedAt', 'closedBy'].includes(key)) continue;
 
       const oldVal = oldLead[key] instanceof Date ? oldLead[key]?.toLocaleDateString() : oldLead[key];
-      const newVal = data[key] instanceof Date ? data[key]?.toLocaleDateString(): data[key];
+      const newVal = data[key] instanceof Date ? data[key]?.toLocaleDateString() : data[key];
 
       if (oldVal !== newVal) changes.push(`${key}: ${oldVal ?? 'null'} → ${newVal ?? 'null'}`);
     }
