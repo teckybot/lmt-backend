@@ -3,14 +3,18 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Helper to get __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+//CRUD USER MANAGEMENT
+// Get all users
 export const getUsers = async (_req, res) => {
   try {
     const users = await prisma.user.findMany({
-      select: { id: true, name: true, role: true },
+      select: { id: true, name: true, email: true, phone: true, role: true },
+      orderBy: {
+        id: "asc", 
+      },
     });
     res.json(users);
   } catch (err) {
@@ -18,6 +22,62 @@ export const getUsers = async (_req, res) => {
     res.status(500).json({ message: "Error fetching users" });
   }
 };
+
+// Create user
+export const createUser = async (req, res) => {
+  try {
+    const { name, email, phone, password, role } = req.body;
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await prisma.user.create({
+      data: { name, email, phone, password: hashedPassword, role },
+      select: { id: true, name: true, email: true, phone: true, role: true },
+    });
+
+    res.status(201).json(user);
+  } catch (err) {
+    console.error("Create user error:", err);
+    res.status(500).json({ message: "Error creating user" });
+  }
+};
+
+// Update user
+export const updateUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, phone, role } = req.body;
+
+    const updatedUser = await prisma.user.update({
+      where: { id: Number(id) },
+      data: { name, email, phone, role },
+      select: { id: true, name: true, email: true, phone: true, role: true },
+    });
+
+    res.json(updatedUser);
+  } catch (err) {
+    console.error("Update user error:", err);
+    res.status(500).json({ message: "Error updating user" });
+  }
+};
+
+// Delete user
+export const deleteUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.user.delete({
+      where: { id: Number(id) },
+    });
+
+    res.json({ message: "User deleted successfully" });
+  } catch (err) {
+    console.error("Delete user error:", err);
+    res.status(500).json({ message: "Error deleting user" });
+  }
+};
+
+
 
 export const getProfile = async (req, res) => {
   try {
@@ -53,7 +113,6 @@ export const getProfile = async (req, res) => {
     res.status(500).json({ message: "Error fetching profile" });
   }
 };
-
 
 export const updateProfile = async (req, res) => {
   try {
@@ -110,7 +169,6 @@ export const updateProfile = async (req, res) => {
     res.status(500).json({ message: "Error updating profile" });
   }
 };
-
 
 
 

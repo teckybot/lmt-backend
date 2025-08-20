@@ -1,6 +1,9 @@
 import express from "express";
 import {
   getUsers,
+  createUser,
+  updateUserById,
+  deleteUserById,
   getProfile,
   updateProfile,
   getActivity,
@@ -14,6 +17,9 @@ const router = express.Router();
 
 // Only admin or above
 router.get("/", authenticateToken, authorizeRole("admin"), getUsers);
+router.post("/", authenticateToken, authorizeRole("super admin"), createUser);
+router.put("/:id", authenticateToken, authorizeRole("super admin"), updateUserById);
+router.delete("/:id", authenticateToken, authorizeRole("super admin"), deleteUserById);
 
 // Any logged-in user
 router.get("/profile", authenticateToken, getProfile);
