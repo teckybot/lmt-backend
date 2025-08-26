@@ -79,7 +79,7 @@ export const deleteUserById = async (req, res) => {
 };
 
 
-
+//Profile
 export const getProfile = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -178,7 +178,7 @@ export const updateProfile = async (req, res) => {
 
 
 
-// GET USER ACTIVITY
+// USER ACTIVITY
 export const getActivity = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -235,6 +235,8 @@ export const clearActivityHistory = async (req, res) => {
   }
 };
 
+
+//Notifications
 // GET NOTIFICATIONS FOR CURRENT USER
 export const getNotifications = async (req, res) => {
   try {
@@ -275,6 +277,7 @@ export const markNotificationsRead = async (req, res) => {
   }
 };
 
+//Reassignment
 // Super admin handles a reassignment request
 export const handleReassignRequest = async (req, res) => {
   try {
