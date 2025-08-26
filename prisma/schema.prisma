@@ -36,18 +36,25 @@ model User {
 
 model Lead {
   id           Int        @id @default(autoincrement())
-  title        String     @db.VarChar(255)
+
+  // Required fields
+  source       String     @db.VarChar(100) // Services
   customerName String     @map("customer_name") @db.VarChar(100)
-  phone        String?    @db.VarChar(15)
+  phone        String     @db.VarChar(15)
+
+  // Optional fields
   email        String?    @db.VarChar(100)
-  source       String?    @db.VarChar(100)
+  priority     String?    @default("Medium") @db.VarChar(20)
   dueDate      DateTime?  @map("due_date")
-  priority     String?    @db.VarChar(20)
-  notes        String?
+  description  Json?      // FAQ JSON structure
+  state        String?    @db.VarChar(100)
+  district     String?    @db.VarChar(100)
+  location     String?    @db.VarChar(255)
+
+  // System fields
   status       String?    @default("New") @db.VarChar(50)
   createdBy    Int?       @map("created_by")
   closedBy     Int?       @map("closed_by")
-  
   createdAt    DateTime?  @default(now()) @map("created_at")
   updatedAt    DateTime?  @default(now()) @map("updated_at")
   closedAt     DateTime?  @map("closed_at")
@@ -56,10 +63,11 @@ model Lead {
   creator      User?      @relation("UserLeads", fields: [createdBy], references: [id], onDelete: SetNull)
   closedByUser User?      @relation("UserClosedLeads", fields: [closedBy], references: [id], onDelete: SetNull)
   activities   UserActivity[]
-  assignments   LeadAssignment[]
+  assignments  LeadAssignment[]
 
   @@map("leads")
 }
+
 
 model UserActivity {
   id         Int          @id @default(autoincrement())
