@@ -3,38 +3,73 @@ import { logActivity } from '../utils/activityLogger.js';
 
 // CREATE LEAD
 export const createLead = async (req, res) => {
-  const { title, customerName, phone, email, source, dueDate, priority, notes } = req.body;
+  const {
+    customerName,
+    phone,
+    email,
+    source,
+    dueDate,
+    priority,
+    description, // FAQ JSON
+    state,
+    district,
+    location,
+  } = req.body;
+
   const userId = req.user.id;
 
   try {
+    // Validate required fields
+    if (!customerName || !phone || !source) {
+      return res.status(400).json({ error: 'Customer Name, Phone, and Source are required.' });
+    }
+
+    // Validate dueDate (must be >= today)
+    let dueDateObj = null;
+    if (dueDate) {
+      dueDateObj = new Date(dueDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // ignore time part
+      if (dueDateObj < today) {
+        return res.status(400).json({ error: 'Due Date cannot be in the past.' });
+      }
+    }
+
+    // Create lead
     const newLead = await prisma.lead.create({
       data: {
-        title,
         customerName,
         phone,
         email,
         source,
-        dueDate: dueDate ? new Date(dueDate) : null,
-        priority,
-        notes,
+        dueDate: dueDateObj,
+        priority: priority || 'Medium',
+        description: description || null,
+        state: state || null,
+        district: district || null,
+        location: location || null,
         status: 'New',
         createdBy: userId,
       },
     });
 
+    // Construct a meaningful identifier for logging
+    const leadIdentifier = `${source} - ${customerName}`;
+
+    // Log activity
     await logActivity({
       userId,
       leadId: newLead.id,
-      leadTitle: newLead.title,
+      leadIdentifier,
       action: 'CREATED',
-      details: `Created lead "${newLead.title}"`,
-      skipLogging: req.skipLogging
+      details: `Created lead for ${customerName} (Source: ${source})`,
+      skipLogging: req.skipLogging,
     });
 
-    res.status(201).json({ message: 'Lead created successfully' });
+    res.status(201).json({ message: 'Lead created successfully', lead: newLead });
   } catch (err) {
     console.error('Create Lead Error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to create lead.' });
   }
 };
 
@@ -141,7 +176,7 @@ export const updateLeadStatus = async (req, res) => {
 
     const oldLead = await prisma.lead.findUnique({
       where: { id: Number(id) },
-      select: { id: true, title: true, status: true },
+      select: { id: true, customerName: true, source: true, status: true },
     });
     if (!oldLead) return res.status(404).json({ error: 'Lead not found' });
 
@@ -154,21 +189,25 @@ export const updateLeadStatus = async (req, res) => {
       data.closedAt = null;
     }
 
-    const lead = await prisma.lead.update({
+    const updatedLead = await prisma.lead.update({
       where: { id: Number(id) },
       data,
     });
 
+    // Construct lead identifier
+    const leadIdentifier = `${updatedLead.source} - ${updatedLead.customerName}`;
+
+    // Log activity
     await logActivity({
       userId,
-      leadId: lead.id,
-      leadTitle: lead.title,
+      leadId: updatedLead.id,
+      leadIdentifier,
       action: status === 'Closed' ? 'CLOSED' : 'UPDATED',
-      details: `Updated status: ${oldLead.status} → ${lead.status}`,
-      skipLogging: req.skipLogging
+      details: `Updated status for ${leadIdentifier}: ${oldLead.status} → ${updatedLead.status}`,
+      skipLogging: req.skipLogging,
     });
 
-    res.json({ message: 'Lead status updated', lead });
+    res.json({ message: 'Lead status updated', lead: updatedLead });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Lead not found' });
     console.error('Update Status Error:', err);
@@ -176,68 +215,125 @@ export const updateLeadStatus = async (req, res) => {
   }
 };
 
+
 // UPDATE LEAD DETAILS
 export const updateLead = async (req, res) => {
   const leadId = Number(req.params.id);
-  const { title, customerName, email, phone, source, dueDate, priority, status, notes } = req.body;
+  const {
+    customerName,
+    phone,
+    email,
+    source,
+    dueDate,
+    priority,
+    status,
+    description,
+    state,
+    district,
+    location,
+  } = req.body;
 
   try {
     const userId = req.user.id;
 
+    // Fetch the existing lead
     const oldLead = await prisma.lead.findUnique({
       where: { id: leadId },
-      select: { title: true, customerName: true, email: true, phone: true, source: true, dueDate: true, priority: true, status: true, notes: true },
+      select: {
+        customerName: true,
+        phone: true,
+        email: true,
+        source: true,
+        dueDate: true,
+        priority: true,
+        status: true,
+        description: true,
+        state: true,
+        district: true,
+        location: true,
+      },
     });
+
     if (!oldLead) return res.status(404).json({ message: 'Lead not found' });
 
     const data = {};
-    if (title !== undefined) data.title = title;
-    if (customerName !== undefined) data.customerName = customerName;
-    if (email !== undefined) data.email = email;
-    if (phone !== undefined) data.phone = phone;
-    if (source !== undefined) data.source = source;
-    if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
-    if (priority !== undefined) data.priority = priority;
-    if (status !== undefined) data.status = status;
-    if (notes !== undefined) data.notes = notes;
 
-    if (status === 'Closed') {
-      data.closedBy = userId;
-      data.closedAt = new Date();
-    } else if (status) {
-      data.closedBy = null;
-      data.closedAt = null;
+    if (customerName !== undefined) data.customerName = customerName;
+    if (phone !== undefined) data.phone = phone;
+    if (email !== undefined) data.email = email;
+    if (source !== undefined) data.source = source;
+    if (dueDate !== undefined) {
+      const dueDateObj = new Date(dueDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (dueDateObj < today) {
+        return res.status(400).json({ error: 'Due Date cannot be in the past.' });
+      }
+      data.dueDate = dueDateObj;
     }
+    if (priority !== undefined) data.priority = priority;
+    if (status !== undefined) {
+      data.status = status;
+      if (status === 'Closed') {
+        data.closedBy = userId;
+        data.closedAt = new Date();
+      } else {
+        data.closedBy = null;
+        data.closedAt = null;
+      }
+    }
+    if (description !== undefined) data.description = description;
+    if (state !== undefined) data.state = state;
+    if (district !== undefined) data.district = district;
+    if (location !== undefined) data.location = location;
 
     data.updatedAt = new Date();
 
-    const lead = await prisma.lead.update({
+    // Update lead in DB
+    const updatedLead = await prisma.lead.update({
       where: { id: leadId },
       data,
     });
 
+    // Construct lead identifier for logging
+    const leadIdentifier = `${updatedLead.source} - ${updatedLead.customerName}`;
+
+    // Prepare change log
     const changes = [];
     for (const key of Object.keys(data)) {
       if (['updatedAt', 'closedAt', 'closedBy'].includes(key)) continue;
 
-      const oldVal = oldLead[key] instanceof Date ? oldLead[key]?.toLocaleDateString() : oldLead[key];
-      const newVal = data[key] instanceof Date ? data[key]?.toLocaleDateString() : data[key];
+      let oldVal = oldLead[key];
+      let newVal = data[key];
 
-      if (oldVal !== newVal) changes.push(`${key}: ${oldVal ?? 'null'} → ${newVal ?? 'null'}`);
+      if (key === 'description') {
+        oldVal = JSON.stringify(oldVal || {});
+        newVal = JSON.stringify(newVal || {});
+      } else if (oldVal instanceof Date) {
+        oldVal = oldVal.toLocaleDateString();
+        newVal = newVal instanceof Date ? newVal.toLocaleDateString() : newVal;
+      }
+
+      if (oldVal !== newVal) {
+        changes.push(`${key}: ${oldVal ?? 'null'} → ${newVal ?? 'null'}`);
+      }
     }
 
-    const details = changes.length ? `Updated lead "${lead.title}": ${changes.join(', ')}` : `Updated lead "${lead.title}"`;
+    const details = changes.length
+      ? `Updated lead "${leadIdentifier}": ${changes.join(', ')}`
+      : `Updated lead "${leadIdentifier}"`;
 
+    // Log activity
     await logActivity({
       userId,
-      leadId: lead.id,
-      leadTitle: lead.title,
+      leadId: updatedLead.id,
+      leadIdentifier,
       action: status === 'Closed' ? 'CLOSED' : 'UPDATED',
       details,
-      skipLogging: req.skipLogging
+      skipLogging: req.skipLogging,
     });
 
-    res.status(200).json({ message: 'Lead updated', lead });
+    res.status(200).json({ message: 'Lead updated', lead: updatedLead });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ message: 'Lead not found' });
     console.error('Update Lead Error:', err);
@@ -250,16 +346,23 @@ export const deleteLead = async (req, res) => {
   const leadId = Number(req.params.id);
 
   try {
-    const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+    const lead = await prisma.lead.findUnique({
+      where: { id: leadId },
+      select: { id: true, customerName: true, source: true },
+    });
     if (!lead) return res.status(404).json({ message: 'Lead not found' });
 
+    // Construct lead identifier
+    const leadIdentifier = `${lead.source} - ${lead.customerName}`;
+
+    // Log activity before deletion
     await logActivity({
       userId: req.user.id,
       leadId: lead.id,
-      leadTitle: lead.title,
+      leadIdentifier,
       action: 'DELETED',
-      details: `Deleted lead "${lead.title}" (ID: ${lead.id})`,
-      skipLogging: req.skipLogging
+      details: `Deleted lead ${leadIdentifier} (ID: ${lead.id})`,
+      skipLogging: req.skipLogging,
     });
 
     await prisma.lead.delete({ where: { id: leadId } });
@@ -271,3 +374,4 @@ export const deleteLead = async (req, res) => {
     res.status(500).json({ message: 'Failed to delete lead.' });
   }
 };
+
