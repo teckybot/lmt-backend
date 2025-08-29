@@ -9,12 +9,8 @@ import prisma from "../config/db.js";
  */
 export const getAnalytics = async (req, res) => {
   try {
-    // Log for debugging (optional, remove in production)
-    console.log("Received query params:", req.query);
-
     const { startDate, endDate } = req.query;
 
-    // Support fallback if frontend mistakenly uses 'from'/'to'
     const startInput = startDate || req.query.from;
     const endInput = endDate || req.query.to;
 
@@ -25,7 +21,6 @@ export const getAnalytics = async (req, res) => {
       });
     }
 
-    // Parse dates
     const start = new Date(startInput);
     const end = new Date(endInput);
 
@@ -36,53 +31,41 @@ export const getAnalytics = async (req, res) => {
       });
     }
 
-    // Set full day boundaries: start = 00:00:00, end = 23:59:59
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
 
     const openStatuses = ["New", "In Progress"];
 
-    // Fetch all data in parallel
+    // Combine queries to reduce connections
     const [
       total,
-      newLeads,
-      inProgress,
-      closed,
-      high,
-      medium,
-      low,
+      statusCounts, // Combines New, In Progress, and Closed counts
+      priorityCounts, // Combines High, Medium, and Low counts
       upcomingLeads,
       overdueLeads,
       recentLeads,
       recentlyClosedLeads,
     ] = await Promise.all([
-      // Total leads created in range
+      // 1. Total leads created in range
       prisma.lead.count({
         where: { createdAt: { gte: start, lte: end } },
       }),
 
-      prisma.lead.count({
-        where: { status: "New", createdAt: { gte: start, lte: end } },
-      }),
-      prisma.lead.count({
-        where: { status: "In Progress", createdAt: { gte: start, lte: end } },
-      }),
-      prisma.lead.count({
-        where: { status: "Closed", createdAt: { gte: start, lte: end } },
+      // 2. Combine status counts into a single query
+      prisma.lead.groupBy({
+        by: ['status'],
+        where: { createdAt: { gte: start, lte: end } },
+        _count: { status: true },
       }),
 
-      // Priority counts
-      prisma.lead.count({
-        where: { priority: { equals: "high", mode: "insensitive" }, createdAt: { gte: start, lte: end } },
-      }),
-      prisma.lead.count({
-        where: { priority: { equals: "medium", mode: "insensitive" }, createdAt: { gte: start, lte: end } },
-      }),
-      prisma.lead.count({
-        where: { priority: { equals: "low", mode: "insensitive" }, createdAt: { gte: start, lte: end } },
+      // 3. Combine priority counts into a single query
+      prisma.lead.groupBy({
+        by: ['priority'],
+        where: { createdAt: { gte: start, lte: end } },
+        _count: { priority: true },
       }),
 
-      // Upcoming leads (due after today, open)
+      // 4. Upcoming leads (due after today, open)
       prisma.lead.findMany({
         where: { status: { in: openStatuses }, dueDate: { gt: new Date() }, createdAt: { gte: start, lte: end } },
         orderBy: { dueDate: "asc" },
@@ -90,7 +73,7 @@ export const getAnalytics = async (req, res) => {
         include: { creator: { select: { id: true, name: true, role: true } } },
       }),
 
-      // Overdue leads
+      // 5. Overdue leads
       prisma.lead.findMany({
         where: { status: { in: openStatuses }, dueDate: { lt: new Date() }, createdAt: { gte: start, lte: end } },
         orderBy: { dueDate: "desc" },
@@ -98,7 +81,7 @@ export const getAnalytics = async (req, res) => {
         include: { creator: { select: { id: true, name: true, role: true } } },
       }),
 
-      // Recent leads (by creation)
+      // 6. Recent leads (by creation)
       prisma.lead.findMany({
         where: { createdAt: { gte: start, lte: end } },
         orderBy: { createdAt: "desc" },
@@ -106,7 +89,7 @@ export const getAnalytics = async (req, res) => {
         include: { creator: { select: { id: true, name: true, role: true } } },
       }),
 
-      // Recently closed
+      // 7. Recently closed
       prisma.lead.findMany({
         where: {
           status: "Closed",
@@ -120,6 +103,15 @@ export const getAnalytics = async (req, res) => {
         },
       }),
     ]);
+
+    // Process the combined queries to extract individual counts
+    const newLeads = statusCounts.find(s => s.status === 'New')?._count.status || 0;
+    const inProgress = statusCounts.find(s => s.status === 'In Progress')?._count.status || 0;
+    const closed = statusCounts.find(s => s.status === 'Closed')?._count.status || 0;
+
+    const high = priorityCounts.find(p => p.priority?.toLowerCase() === 'high')?._count.priority || 0;
+    const medium = priorityCounts.find(p => p.priority?.toLowerCase() === 'medium')?._count.priority || 0;
+    const low = priorityCounts.find(p => p.priority?.toLowerCase() === 'low')?._count.priority || 0;
 
     // Send response
     res.json({
