@@ -9,15 +9,20 @@ const __dirname = path.dirname(__filename);
 
 //CRUD USER MANAGEMENT
 // Get all users
-export const getUsers = async (_req, res) => {
+export const getUsers = async (req, res) => {
   try {
     const users = await prisma.user.findMany({
-      select: { id: true, name: true, email: true, phone: true, role: true },
+      select: { id: true, name: true, email: true, phone: true, role: true, avatar: true },
       orderBy: {
         id: "asc", 
       },
     });
-    res.json(users);
+    const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+    const usersWithFullAvatar = users.map(u => ({
+      ...u,
+      avatar: u.avatar ? `${baseUrl}${u.avatar}` : null,
+    }));
+    res.json(usersWithFullAvatar);
   } catch (err) {
     console.error("Get users error:", err);
     res.status(500).json({ message: "Error fetching users" });

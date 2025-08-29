@@ -22,17 +22,64 @@ export const assignLead = async (leadId, assigneeIds, assignedById) => {
 
     // Log activity
     const users = await tx.user.findMany({ where: { id: { in: assigneeIds } }, select: { name: true } });
-    const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { title: true } });
-    await logActivity({
+    const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { customerName: true, source: true } });
+    const leadIdentifier = `${lead?.source ?? ''} - ${lead?.customerName ?? ''}`.trim();
+    await logActivity(tx, {
       userId: assignedById,
       leadId,
-      leadTitle: lead?.title,
+      leadIdentifier,
       action: 'UPDATED',
-      details: `Lead assigned to ${users.map(u => u.name).join(', ')}`,
+      details: `Assigned to ${users.map(u => u.name).join(', ')}`,
     });
 
     return assignments;
   });
+};
+
+// Remove a single assignee from a lead
+export const unassignUserFromLead = async (leadId, userId, unassignedById) => {
+  return await prisma.$transaction(async (tx) => {
+    await tx.leadAssignment.deleteMany({ where: { leadId, userId } });
+
+    const user = await tx.user.findUnique({ where: { id: userId }, select: { name: true } });
+    const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { customerName: true, source: true } });
+    const leadIdentifier = `${lead?.source ?? ''} - ${lead?.customerName ?? ''}`.trim();
+    await logActivity(tx, {
+      userId: unassignedById,
+      leadId,
+      leadIdentifier,
+      action: 'UPDATED',
+      details: `Unassigned ${user?.name ?? userId}`,
+    });
+
+    return { leadId, userId };
+  });
+};
+
+// Get assignments for a lead
+export const getAssignmentsForLead = async (leadId) => {
+  const assignments = await prisma.leadAssignment.findMany({
+    where: { leadId, active: true },
+    include: {
+      user: { select: { id: true, name: true, email: true, avatar: true } },
+      assignedByUser: { select: { id: true, name: true, role: true } },
+    },
+  });
+  return assignments;
+};
+
+// List all current assignments (admin+)
+export const listAllAssignments = async () => {
+  const assignments = await prisma.leadAssignment.findMany({
+    where: { active: true },
+    include: {
+      lead: { select: { id: true, source: true, customerName: true } },
+      user: { select: { id: true, name: true, email: true, avatar: true } },
+      assignedByUser: { select: { id: true, name: true, role: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+  return assignments;
 };
 
 // Bulk assignment (multiple leads, multiple users) - Super Admin only
@@ -55,13 +102,14 @@ export const bulkAssignLeads = async (leadIds, assigneeIds, assignedById) => {
       await tx.leadAssignment.createMany({ data: assignments });
 
       const users = await tx.user.findMany({ where: { id: { in: assigneeIds } }, select: { name: true } });
-      const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { title: true } });
-      await logActivity({
+      const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { customerName: true, source: true } });
+      const leadIdentifier = `${lead?.source ?? ''} - ${lead?.customerName ?? ''}`.trim();
+      await logActivity(tx, {
         userId: assignedById,
         leadId,
-        leadTitle: lead?.title,
+        leadIdentifier,
         action: 'UPDATED',
-        details: `Lead bulk assigned to ${users.map(u => u.name).join(', ')}`,
+        details: `Bulk assigned to ${users.map(u => u.name).join(', ')}`,
       });
 
       allAssignments.push(...assignments);

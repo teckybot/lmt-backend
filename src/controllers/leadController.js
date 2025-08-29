@@ -96,7 +96,7 @@ export const createLead = async (req, res) => {
 };
 
 // GET ALL LEADS
-export const getLeads = async (_req, res) => {
+export const getLeads = async (req, res) => {
   try {
     const leads = await prisma.lead.findMany({
       orderBy: { createdAt: 'desc' },
@@ -111,6 +111,7 @@ export const getLeads = async (_req, res) => {
               select: {
                 id: true,
                 name: true,
+                avatar: true,
               },
             },
             assignedByUser: {
@@ -121,10 +122,12 @@ export const getLeads = async (_req, res) => {
       },
     });
 
-    // The frontend LeadTable.jsx expects an `assignees` property directly on each lead object.
-    // This maps the database result into that format.
+    const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
     const formattedLeads = leads.map(lead => {
-      const assignees = lead.assignments.map(a => a.user);
+      const assignees = lead.assignments.map(a => ({
+        ...a.user,
+        avatar: a.user?.avatar ? `${baseUrl}${a.user.avatar}` : null,
+      }));
       const assignedByNames = Array.from(new Set(lead.assignments.map(a => a.assignedByUser?.name).filter(Boolean)));
       return {
         ...lead,
@@ -160,7 +163,7 @@ export const getMyLeads = async (req, res) => {
           where: { active: true },
           select: {
             user: {
-              select: { id: true, name: true },
+              select: { id: true, name: true, avatar: true },
             },
             assignedByUser: {
               select: { id: true, name: true, role: true },
@@ -170,8 +173,12 @@ export const getMyLeads = async (req, res) => {
       },
     });
 
+    const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
     const formattedLeads = leads.map((lead) => {
-      const assignees = lead.assignments.map((assignment) => assignment.user);
+      const assignees = lead.assignments.map((assignment) => ({
+        ...assignment.user,
+        avatar: assignment.user?.avatar ? `${baseUrl}${assignment.user.avatar}` : null,
+      }));
       const assignedByNames = Array.from(new Set(lead.assignments.map(a => a.assignedByUser?.name).filter(Boolean)));
       return {
         ...lead,

@@ -1,4 +1,4 @@
-import { assignLead, bulkAssignLeads, requestReassignment } from '../services/leadService.js';
+import { assignLead, bulkAssignLeads, requestReassignment, unassignUserFromLead, getAssignmentsForLead, listAllAssignments } from '../services/leadService.js';
 import prisma from '../config/db.js';
 
 export const assignLeadController = async (req, res) => {
@@ -59,5 +59,53 @@ export const requestReassignController = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Failed to request reassignment" });
+  }
+};
+
+export const unassignController = async (req, res) => {
+  try {
+    const { leadId, userId } = req.params;
+    const result = await unassignUserFromLead(Number(leadId), Number(userId), req.user.id);
+    res.json({ success: true, result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Failed to unassign user' });
+  }
+};
+
+export const listLeadAssignmentsController = async (req, res) => {
+  try {
+    const { leadId } = req.params;
+    const items = await getAssignmentsForLead(Number(leadId));
+    const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+    const withFullAvatar = items.map(a => ({
+      ...a,
+      user: {
+        ...a.user,
+        avatar: a.user?.avatar ? `${baseUrl}${a.user.avatar}` : null,
+      },
+    }));
+    res.json(withFullAvatar);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Failed to fetch assignments' });
+  }
+};
+
+export const listAllAssignmentsController = async (req, res) => {
+  try {
+    const items = await listAllAssignments();
+    const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+    const withFullAvatar = items.map(a => ({
+      ...a,
+      user: {
+        ...a.user,
+        avatar: a.user?.avatar ? `${baseUrl}${a.user.avatar}` : null,
+      },
+    }));
+    res.json(withFullAvatar);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Failed to list assignments' });
   }
 };
