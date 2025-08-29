@@ -198,7 +198,7 @@ export const getActivity = async (req, res) => {
       orderBy: { createdAt: 'desc' },
       include: {
         user: { select: { name: true } },
-        lead: { select: { title: true } }
+        lead: { select: { id: true, customerName: true } }
       }
     });
 
@@ -207,7 +207,7 @@ export const getActivity = async (req, res) => {
       username: act.user?.name || 'Unknown',
       action: act.action,
       details: act.details,
-      leadTitle: act.lead?.title || null,
+      leadTitle: act.leadTitle || act.lead?.customerName || null,
       createdAt: act.createdAt
     }));
 
