@@ -47,6 +47,10 @@ export const login = async (req, res) => {
 // User Registration
 export const register = async (req, res) => {
   const { name, email, phone, password, role } = req.body;
+  if (!password || !email) {
+    return res.status(400).json({ error: "Email and password are required" });
+  }
+
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
@@ -68,6 +72,7 @@ export const register = async (req, res) => {
     return res.status(400).json({ error: err.message });
   }
 };
+
 
 // Reset own password (current + new)
 export const resetPassword = async (req, res) => {
