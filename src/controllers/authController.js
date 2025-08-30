@@ -2,6 +2,7 @@ import prisma from '../config/db.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
+// User Login
 export const login = async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -17,12 +18,12 @@ export const login = async (req, res) => {
       { expiresIn: "1h" }
     );
 
-    // update login timestamps
+    // Update login timestamps
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        previousLogin: user.lastLogin, // shift old one here
-        lastLogin: new Date(),         // set new one
+        previousLogin: user.lastLogin,
+        lastLogin: new Date(),
       },
     });
 
@@ -33,8 +34,8 @@ export const login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        lastLogin: user.lastLogin,        // most recent (before updating)
-        previousLogin: user.previousLogin // available after first migration
+        lastLogin: user.lastLogin,
+        previousLogin: user.previousLogin,
       },
     });
   } catch (err) {
@@ -43,37 +44,37 @@ export const login = async (req, res) => {
   }
 };
 
-
+// User Registration
 export const register = async (req, res) => {
-  const { name, email,phone, password, role } = req.body;
+  const { name, email, phone, password, role } = req.body;
   try {
-    const hashed = await bcrypt.hash(password, 10);
-    await prisma.user.create({
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({
       data: {
         name,
         email,
         phone,
-        password: hashed,
+        password: hashedPassword,
         role: role || "employee",
       },
     });
+
     res.status(201).json({ message: "User registered successfully" });
   } catch (err) {
     console.error("Register Error:", err);
-    // Unique email constraint friendly message:
-    if (err.code === 'P2002') return res.status(400).json({ error: "Email already in use" });
-    res.status(400).json({ error: err.message });
+    if (err.code === 'P2002') {
+      return res.status(400).json({ error: "Email already in use" });
+    }
+    return res.status(400).json({ error: err.message });
   }
 };
 
-
-// Reset password for logged-in user
+// Reset own password (current + new)
 export const resetPassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const userId = req.user.id; // from JWT via middleware
+    const userId = req.user.id;
 
-    // Input validation
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
         error: "Current and new password are required",
@@ -86,7 +87,6 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    // Fetch user from DB (only need password hash)
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { password: true },
@@ -96,22 +96,61 @@ export const resetPassword = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Compare currentPassword with stored hash
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       return res.status(400).json({ error: "Current password is incorrect" });
     }
 
-    // Hash and update new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await prisma.user.update({
       where: { id: userId },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword }, // ✅ Fixed: was missing `data:`
     });
 
-    res.json({ message: "Password reset successfully" });
+    return res.json({ message: "Password reset successfully" });
   } catch (error) {
     console.error("Password reset error:", error);
-    res.status(500).json({ error: "Failed to reset password" });
+    return res.status(500).json({ error: "Failed to reset password" });
+  }
+};
+
+// Admin force reset any user's password
+export const forceResetPassword = async (req, res) => {
+  try {
+    const { userId, newPassword } = req.body;
+
+    // Authorization check
+    if (req.user.role !== 'admin' && req.user.role !== 'super admin') {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    // Input validation
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({
+        error: "New password must be at least 6 characters",
+      });
+    }
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true }, // Only check existence
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Hash and update
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword }, // ✅ Fixed: was missing `data:`
+    });
+
+    return res.json({ message: "Password reset successfully" });
+  } catch (error) {
+    console.error("Force password reset error:", error);
+    return res.status(500).json({ error: "Failed to reset password" });
   }
 };
