@@ -8,9 +8,6 @@ import {
   updateProfile,
   getActivity,
   clearActivityHistory,
-  getNotifications,
-  markNotificationsRead,
-  handleReassignRequest
 } from "../controllers/userController.js";
 import { authenticateToken } from "../middleware/authMiddleware.js";
 import { authorizeRole } from "../middleware/roleMiddleware.js";
@@ -32,9 +29,5 @@ router.delete("/:id", authenticateToken, authorizeRole("super admin"), deleteUse
 router.get("/activity", authenticateToken, getActivity);
 // router.get("/activity/clear", authenticateToken, clearActivityHistory);
 
-// Notifications
-router.get("/notifications", authenticateToken, getNotifications);
-router.post("/notifications/read", authenticateToken, markNotificationsRead);
-router.post("/notifications/handle-reassign", authenticateToken, authorizeRole("super admin"), handleReassignRequest);
 
 export default router;

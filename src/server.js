@@ -11,7 +11,8 @@ import authRoutes from "./routes/authRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import leadRoutes from "./routes/leadRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
-import assignRoutes from "./routes/assignRoutes.js";
+import assignRoutes from "./routes/assignRoutes.js"; 
+import notificationRoutes from './routes/notificationRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,6 +41,7 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/leads", leadRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/assigns", assignRoutes);
+app.use("/api/notifications",notificationRoutes);
 
 app.use('/', (req, res) => {
   res.send('LMT Backend is running');
