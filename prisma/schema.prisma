@@ -30,6 +30,7 @@ model User {
   actedNotifications     Notification[] @relation("ActedBy")
   reassignPermissionsGranted ReassignPermission[] @relation("GrantedPermissions")
   reassignPermissions        ReassignPermission[] @relation("AdminPermissions")
+  comments LeadComment[] 
 
   @@map("users")
 }
@@ -64,6 +65,7 @@ model Lead {
   closedByUser User?      @relation("UserClosedLeads", fields: [closedBy], references: [id], onDelete: SetNull)
   activities   UserActivity[]
   assignments  LeadAssignment[]
+  comments      LeadComment[]
 
   @@map("leads")
 }
@@ -156,5 +158,20 @@ model ReassignPermission {
 
   @@index([leadId, adminId, used])
   @@map("reassign_permissions")
+}
+
+model LeadComment {
+  id        Int      @id @default(autoincrement())
+  leadId    Int
+  userId    Int
+  content   String
+  createdAt DateTime @default(now())
+
+  // Relations
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("lead_comments")
 }
 
