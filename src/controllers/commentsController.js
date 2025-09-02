@@ -60,6 +60,15 @@ export const addLeadComment = async (req, res) => {
     const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { id: true } });
     if (!lead) return res.status(404).json({ error: 'Lead not found' });
 
+    // Permission: only currently assigned users can comment
+    const isAssigned = await prisma.leadAssignment.findFirst({
+      where: { leadId, userId, active: true },
+      select: { id: true },
+    });
+    if (!isAssigned) {
+      return res.status(403).json({ error: 'Only assigned users can comment on this lead' });
+    }
+
     const created = await prisma.leadComment.create({
       data: { leadId, userId, content: content.trim() },
       include: { user: { select: { id: true, name: true, avatar: true } } },
@@ -112,8 +121,7 @@ export const editLeadComment = async (req, res) => {
     }
 
     const isOwner = existing.userId === userId;
-    const isAdmin = role === 'admin' || role === 'superadmin';
-    if (!isOwner && !isAdmin) {
+    if (!isOwner) {
       return res.status(403).json({ error: 'Not allowed to edit this comment' });
     }
 
@@ -162,8 +170,7 @@ export const deleteLeadComment = async (req, res) => {
     }
 
     const isOwner = existing.userId === userId;
-    const isAdmin = role === 'admin' || role === 'superadmin';
-    if (!isOwner && !isAdmin) {
+    if (!isOwner) {
       return res.status(403).json({ error: 'Not allowed to delete this comment' });
     }
 
