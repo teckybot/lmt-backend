@@ -17,11 +17,17 @@ export const getLeadComments = async (req, res) => {
       where: { leadId },
       include: {
         user: { select: { id: true, name: true, avatar: true } },
+        // Include the parent comment, if it exists, to get the author's name
+        replyTo: {
+          select: {
+            id: true,
+            user: { select: { id: true, name: true, avatar: true } }
+          }
+        },
       },
       orderBy: { createdAt: 'asc' },
     });
 
-    // normalize avatar URLs to absolute
     const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
     const formatted = comments.map((c) => ({
       ...c,
@@ -29,6 +35,14 @@ export const getLeadComments = async (req, res) => {
         ...c.user,
         avatar: c.user?.avatar ? `${baseUrl}${c.user.avatar}` : null,
       },
+      // Check if replyTo exists and format its user avatar
+      replyTo: c.replyTo ? {
+        ...c.replyTo,
+        user: {
+          ...c.replyTo.user,
+          avatar: c.replyTo.user?.avatar ? `${baseUrl}${c.replyTo.user.avatar}` : null,
+        }
+      } : null,
     }));
 
     return res.json(formatted);
@@ -41,12 +55,13 @@ export const getLeadComments = async (req, res) => {
 /**
  * POST /api/leads/:leadId/comments
  * Auth: required
- * Body: { content: string }
+ * Body: { content: string, replyToId: number }
  */
 export const addLeadComment = async (req, res) => {
   const leadId = Number(req.params.leadId);
   const userId = req.user?.id;
-  const { content } = req.body || {};
+  // Destructure the new replyToId field
+  const { content, replyToId } = req.body || {};
 
   if (!Number.isInteger(leadId)) {
     return res.status(400).json({ error: 'Invalid leadId' });
@@ -56,11 +71,9 @@ export const addLeadComment = async (req, res) => {
   }
 
   try {
-    // Optional: ensure lead exists
     const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { id: true } });
     if (!lead) return res.status(404).json({ error: 'Lead not found' });
 
-    // Permission: only currently assigned users can comment
     const isAssigned = await prisma.leadAssignment.findFirst({
       where: { leadId, userId, active: true },
       select: { id: true },
@@ -70,8 +83,23 @@ export const addLeadComment = async (req, res) => {
     }
 
     const created = await prisma.leadComment.create({
-      data: { leadId, userId, content: content.trim() },
-      include: { user: { select: { id: true, name: true, avatar: true } } },
+      data: {
+        leadId,
+        userId,
+        content: content.trim(),
+        // Save the replyToId if it exists, otherwise null
+        replyToId: replyToId ? Number(replyToId) : null,
+      },
+      include: {
+        user: { select: { id: true, name: true, avatar: true } },
+        // Include the parent comment's user for the socket emission
+        replyTo: {
+          select: {
+            id: true,
+            user: { select: { id: true, name: true, avatar: true } }
+          }
+        },
+      },
     });
 
     const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
@@ -81,9 +109,16 @@ export const addLeadComment = async (req, res) => {
         ...created.user,
         avatar: created.user?.avatar ? `${baseUrl}${created.user.avatar}` : null,
       },
+      // Format the replyTo user's avatar as well
+      replyTo: created.replyTo ? {
+        ...created.replyTo,
+        user: {
+          ...created.replyTo.user,
+          avatar: created.replyTo.user?.avatar ? `${baseUrl}${created.replyTo.user.avatar}` : null,
+        }
+      } : null,
     };
 
-    // Emit to the room for this lead
     const io = req.app?.get && req.app.get('io');
     if (io) io.to(`lead_${leadId}`).emit('leadCommentAdded', formatted);
 
@@ -128,7 +163,10 @@ export const editLeadComment = async (req, res) => {
     const updated = await prisma.leadComment.update({
       where: { id: commentId },
       data: { content: content.trim() },
-      include: { user: { select: { id: true, name: true, avatar: true } } },
+      include: { 
+        user: { select: { id: true, name: true, avatar: true } },
+        replyTo: { select: { id: true, user: { select: { id: true, name: true, avatar: true } } } },
+      },
     });
 
     const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
@@ -138,6 +176,13 @@ export const editLeadComment = async (req, res) => {
         ...updated.user,
         avatar: updated.user?.avatar ? `${baseUrl}${updated.user.avatar}` : null,
       },
+      replyTo: updated.replyTo ? {
+        ...updated.replyTo,
+        user: {
+          ...updated.replyTo.user,
+          avatar: updated.replyTo.user?.avatar ? `${baseUrl}${updated.replyTo.user.avatar}` : null,
+        }
+      } : null,
     };
 
     const io = req.app?.get && req.app.get('io');

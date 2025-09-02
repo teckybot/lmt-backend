@@ -167,9 +167,14 @@ model LeadComment {
   content   String
   createdAt DateTime @default(now())
 
+//fields for replies
+  replyToId Int?
+  replyTo   LeadComment? @relation("CommentReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+
   // Relations
-  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lead      Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replies   LeadComment[] @relation("CommentReplies")
 
   @@index([leadId])
   @@map("lead_comments")
