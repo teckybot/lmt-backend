@@ -75,7 +75,8 @@ export const addLeadComment = async (req, res) => {
     };
 
     // Emit to the room for this lead
-    if (req.io) req.io.to(`lead_${leadId}`).emit('leadCommentAdded', formatted);
+    const io = req.app?.get && req.app.get('io');
+    if (io) io.to(`lead_${leadId}`).emit('leadCommentAdded', formatted);
 
     return res.status(201).json(formatted);
   } catch (err) {
@@ -131,7 +132,8 @@ export const editLeadComment = async (req, res) => {
       },
     };
 
-    if (req.io) req.io.to(`lead_${leadId}`).emit('leadCommentEdited', formatted);
+    const io = req.app?.get && req.app.get('io');
+    if (io) io.to(`lead_${leadId}`).emit('leadCommentEdited', formatted);
     return res.json(formatted);
   } catch (err) {
     console.error('Edit Lead Comment Error:', err);
@@ -167,7 +169,8 @@ export const deleteLeadComment = async (req, res) => {
 
     await prisma.leadComment.delete({ where: { id: commentId } });
 
-    if (req.io) req.io.to(`lead_${leadId}`).emit('leadCommentDeleted', { id: commentId, leadId });
+    const io = req.app?.get && req.app.get('io');
+    if (io) io.to(`lead_${leadId}`).emit('leadCommentDeleted', { id: commentId, leadId });
     return res.json({ message: 'Comment deleted' });
   } catch (err) {
     console.error('Delete Lead Comment Error:', err);
